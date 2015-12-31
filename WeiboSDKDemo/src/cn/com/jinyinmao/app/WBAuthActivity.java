@@ -14,9 +14,7 @@
  * limitations under the License.
  */
 
-package com.sina.weibo.sdk.demo;
-
-import java.text.SimpleDateFormat;
+package cn.com.jinyinmao.app;
 
 import android.app.Activity;
 import android.content.Intent;
@@ -33,6 +31,8 @@ import com.sina.weibo.sdk.auth.Oauth2AccessToken;
 import com.sina.weibo.sdk.auth.WeiboAuthListener;
 import com.sina.weibo.sdk.auth.sso.SsoHandler;
 import com.sina.weibo.sdk.exception.WeiboException;
+
+import java.text.SimpleDateFormat;
 
 /**
  * 该类主要演示如何进行授权、SSO登陆。

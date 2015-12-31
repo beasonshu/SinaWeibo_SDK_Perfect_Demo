@@ -7,7 +7,7 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package com.sina.weibo.sdk.demo;
+package cn.com.jinyinmao.app;
 
 import android.app.Activity;
 import android.content.Intent;

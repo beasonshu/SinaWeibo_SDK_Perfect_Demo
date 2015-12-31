@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.sina.weibo.sdk.demo.openapi;
+package cn.com.jinyinmao.app.openapi;
 
 import android.app.Activity;
 import android.os.Bundle;
@@ -28,36 +28,35 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.sina.weibo.sdk.auth.Oauth2AccessToken;
-import com.sina.weibo.sdk.demo.AccessTokenKeeper;
-import com.sina.weibo.sdk.demo.Constants;
-import com.sina.weibo.sdk.demo.R;
+import cn.com.jinyinmao.app.AccessTokenKeeper;
+import cn.com.jinyinmao.app.Constants;
 import com.sina.weibo.sdk.exception.WeiboException;
 import com.sina.weibo.sdk.net.RequestListener;
-import com.sina.weibo.sdk.openapi.UsersAPI;
-import com.sina.weibo.sdk.openapi.models.ErrorInfo;
-import com.sina.weibo.sdk.openapi.models.User;
+import com.sina.weibo.sdk.openapi.CommentsAPI;
+import com.sina.weibo.sdk.openapi.models.CommentList;
 import com.sina.weibo.sdk.utils.LogUtil;
+
+import cn.com.jinyinmao.app.R;
 
 /**
  * 该类主要演示了如何使用微博 OpenAPI 来获取以下内容：
- * <li>获取用户信息
- * <li>通过个性域名获取用户信息 
- * <li>批量获取用户的粉丝数、关注数、微博数 
+ * <li>获取某条微博的评论列表
+ * <li>...
  * 
  * @author SINA
- * @since 2014-04-06
+ * @since 2013-11-24
  */
-public class WBUserAPIActivity extends Activity implements OnItemClickListener {
-    private static final String TAG = WBUserAPIActivity.class.getName();
-    
+public class WBCommentAPIActivity extends Activity implements OnItemClickListener {
+    private static final String TAG = "WBCommentAPIActivity";
+
     /** UI 元素：ListView */
     private ListView mFuncListView;
     /** 功能列表 */
     private String[] mFuncList;
     /** 当前 Token 信息 */
     private Oauth2AccessToken mAccessToken;
-    /** 用户信息接口 */
-    private UsersAPI mUsersAPI;
+    /** 微博评论接口 */
+    private CommentsAPI mCommentsAPI;
     
     /**
      * @see {@link Activity#onCreate}
@@ -68,7 +67,7 @@ public class WBUserAPIActivity extends Activity implements OnItemClickListener {
         setContentView(R.layout.activity_open_api_base_layout);
         
         // 获取功能列表
-        mFuncList = getResources().getStringArray(R.array.user_func_list);
+        mFuncList = getResources().getStringArray(R.array.comment_func_list);
         // 初始化功能列表 ListView
         mFuncListView = (ListView)findViewById(R.id.api_func_list);
         mFuncListView.setAdapter(new ArrayAdapter<String>(
@@ -77,8 +76,8 @@ public class WBUserAPIActivity extends Activity implements OnItemClickListener {
         
         // 获取当前已保存过的 Token
         mAccessToken = AccessTokenKeeper.readAccessToken(this);
-        // 获取用户信息接口
-        mUsersAPI = new UsersAPI(this, Constants.APP_KEY, mAccessToken);
+        // 获取微博评论信息接口
+        mCommentsAPI = new CommentsAPI(this, Constants.APP_KEY, mAccessToken);
     }
     
     /**
@@ -90,43 +89,41 @@ public class WBUserAPIActivity extends Activity implements OnItemClickListener {
             if (mAccessToken != null && mAccessToken.isSessionValid()) {
                 switch (position) {
                 case 0:
-                    //String uid = mAccessToken.getUid();
-                    long uid = Long.parseLong(mAccessToken.getUid());
-                    mUsersAPI.show(uid, mListener);
-                    break;
-                    
-                case 1:
-                    long[] uids = { Long.parseLong(mAccessToken.getUid()) };
-                    mUsersAPI.counts(uids, mListener);
+                	mCommentsAPI.toME(0L, 0L, 10, 1, CommentsAPI.AUTHOR_FILTER_ALL, CommentsAPI.SRC_FILTER_ALL, mListener);
                     break;
 
+                case 1:
+                    mCommentsAPI.byME(0L, 0L, 10, 1, CommentsAPI.SRC_FILTER_ALL, mListener);
+                    break;
+                    
+                case 2:
+                    mCommentsAPI.timeline(0L, 0L, 10, 1, true, mListener);
+                    break;
+                    
                 default:
                     break;
                 }
             } else {
-                Toast.makeText(WBUserAPIActivity.this, 
+                Toast.makeText(WBCommentAPIActivity.this, 
                         R.string.weibosdk_demo_access_token_is_empty, 
                         Toast.LENGTH_LONG).show();
             }
         }
     }
-    
+
     /**
      * 微博 OpenAPI 回调接口。
      */
     private RequestListener mListener = new RequestListener() {
         @Override
         public void onComplete(String response) {
+            LogUtil.i(TAG, response);
             if (!TextUtils.isEmpty(response)) {
-                LogUtil.i(TAG, response);
-                // 调用 User#parse 将JSON串解析成User对象
-                User user = User.parse(response);
-                if (user != null) {
-                    Toast.makeText(WBUserAPIActivity.this, 
-                            "获取User信息成功，用户昵称：" + user.screen_name, 
+                CommentList comments = CommentList.parse(response);
+                if(comments != null && comments.total_number > 0){
+                    Toast.makeText(WBCommentAPIActivity.this,
+                            "获取评论成功, 条数: " + comments.commentList.size(), 
                             Toast.LENGTH_LONG).show();
-                } else {
-                    Toast.makeText(WBUserAPIActivity.this, response, Toast.LENGTH_LONG).show();
                 }
             }
         }
@@ -134,8 +131,6 @@ public class WBUserAPIActivity extends Activity implements OnItemClickListener {
         @Override
         public void onWeiboException(WeiboException e) {
             LogUtil.e(TAG, e.getMessage());
-            ErrorInfo info = ErrorInfo.parse(e.getMessage());
-            Toast.makeText(WBUserAPIActivity.this, info.toString(), Toast.LENGTH_LONG).show();
         }
-    };
+    }; 
 }

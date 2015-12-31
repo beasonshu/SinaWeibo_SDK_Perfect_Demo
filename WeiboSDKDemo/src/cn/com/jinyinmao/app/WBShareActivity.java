@@ -14,10 +14,12 @@
  * limitations under the License.
  */
 
-package com.sina.weibo.sdk.demo;
+package cn.com.jinyinmao.app;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.drawable.BitmapDrawable;
 import android.os.Bundle;
 import android.view.View;
@@ -36,28 +38,40 @@ import com.sina.weibo.sdk.api.VoiceObject;
 import com.sina.weibo.sdk.api.WebpageObject;
 import com.sina.weibo.sdk.api.WeiboMessage;
 import com.sina.weibo.sdk.api.WeiboMultiMessage;
-import com.sina.weibo.sdk.api.share.BaseRequest;
+import com.sina.weibo.sdk.api.share.BaseResponse;
 import com.sina.weibo.sdk.api.share.IWeiboHandler;
 import com.sina.weibo.sdk.api.share.IWeiboShareAPI;
-import com.sina.weibo.sdk.api.share.ProvideMessageForWeiboResponse;
-import com.sina.weibo.sdk.api.share.ProvideMultiMessageForWeiboResponse;
+import com.sina.weibo.sdk.api.share.SendMessageToWeiboRequest;
+import com.sina.weibo.sdk.api.share.SendMultiMessageToWeiboRequest;
 import com.sina.weibo.sdk.api.share.WeiboShareSDK;
+import com.sina.weibo.sdk.auth.AuthInfo;
+import com.sina.weibo.sdk.auth.Oauth2AccessToken;
+import com.sina.weibo.sdk.auth.WeiboAuthListener;
+import com.sina.weibo.sdk.constant.WBConstants;
+import com.sina.weibo.sdk.exception.WeiboException;
+import com.sina.weibo.sdk.utils.LogUtil;
 import com.sina.weibo.sdk.utils.Utility;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 
 /**
  * 该类演示了第三方应用如何通过微博客户端分享文字、图片、视频、音乐等。
- * 执行流程： 从微博->本应用->微博
- * <p><b>该类与 {@link WBShareActivity} 类的界面及流程大致一样，请注意区分。</b></p>
+ * 执行流程： 从本应用->微博->本应用
  * 
  * @author SINA
- * @since 2013-11-01
+ * @since 2013-10-22
  */
-public class WBShareResponseActivity extends Activity implements OnClickListener, IWeiboHandler.Request {
+public class WBShareActivity extends Activity implements OnClickListener, IWeiboHandler.Response {
     @SuppressWarnings("unused")
-    private static final String TAG = "WBShareResponseActivity";
+    private static final String TAG = "WBShareActivity";
 
+    public static final String KEY_SHARE_TYPE = "key_share_type";
+    public static final int SHARE_CLIENT = 1;
+    public static final int SHARE_ALL_IN_ONE = 2;
+    
     /** 界面标题 */
-    private TextView        mTitleView;    
+    private TextView        mTitleView;
     /** 分享图片 */
     private ImageView       mImageView;
     /** 用于控制是否分享文本的 CheckBox */
@@ -76,36 +90,49 @@ public class WBShareResponseActivity extends Activity implements OnClickListener
     private Button          mSharedBtn;
     
     /** 微博微博分享接口实例 */
-    private IWeiboShareAPI  mShareWeiboAPI    = null;
-    /** 从微博客户端唤起第三方应用时，客户端发送过来的请求数据对象 */
-    private BaseRequest     mBaseRequest = null;
+    private IWeiboShareAPI  mWeiboShareAPI = null;
 
+    private int mShareType = SHARE_CLIENT;
+    
     /**
      * @see {@link Activity#onCreate}
      */
-	@Override
-	protected void onCreate(Bundle savedInstanceState) {
-		super.onCreate(savedInstanceState);
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_share);
         initViews();
 
-        // 创建微博分享接口实例
-        mShareWeiboAPI = WeiboShareSDK.createWeiboAPI(this, Constants.APP_KEY);
+        mShareType = getIntent().getIntExtra(KEY_SHARE_TYPE, SHARE_CLIENT);
         
-        // 处理微博客户端发送过来的请求
-		mShareWeiboAPI.handleWeiboRequest(getIntent(), this);
-	}
-
+        // 创建微博分享接口实例
+        mWeiboShareAPI = WeiboShareSDK.createWeiboAPI(this, Constants.APP_KEY);
+        
+        // 注册第三方应用到微博客户端中，注册成功后该应用将显示在微博的应用列表中。
+        // 但该附件栏集成分享权限需要合作申请，详情请查看 Demo 提示
+        // NOTE：请务必提前注册，即界面初始化的时候或是应用程序初始化时，进行注册
+        mWeiboShareAPI.registerApp();
+        
+		// 当 Activity 被重新初始化时（该 Activity 处于后台时，可能会由于内存不足被杀掉了），
+        // 需要调用 {@link IWeiboShareAPI#handleWeiboResponse} 来接收微博客户端返回的数据。
+        // 执行成功，返回 true，并调用 {@link IWeiboHandler.Response#onResponse}；
+        // 失败返回 false，不调用上述回调
+        if (savedInstanceState != null) {
+            mWeiboShareAPI.handleWeiboResponse(getIntent(), this);
+        }
+    }
+    
     /**
      * @see {@link Activity#onNewIntent}
-     */
-	@Override
+     */	
+    @Override
     protected void onNewIntent(Intent intent) {
-    	super.onNewIntent(intent);
-    	setIntent(intent);
-    	
-    	// 处理微博客户端发送过来的请求
-    	mShareWeiboAPI.handleWeiboRequest(intent, this);
+        super.onNewIntent(intent);
+        
+        // 从当前应用唤起微博并进行分享后，返回到当前应用时，需要在此处调用该函数
+        // 来接收微博客户端返回的数据；执行成功，返回 true，并调用
+        // {@link IWeiboHandler.Response#onResponse}；失败返回 false，不调用上述回调
+        mWeiboShareAPI.handleWeiboResponse(intent, this);
     }
 
     /**
@@ -116,41 +143,34 @@ public class WBShareResponseActivity extends Activity implements OnClickListener
      * @see {@link IWeiboShareAPI#handleWeiboRequest}
      */
     @Override
-    public void onRequest(BaseRequest baseRequest) {
-        // 保存从微博客户端唤起第三方应用时，客户端发送过来的请求数据对象
-        mBaseRequest = baseRequest;
-        
-        int resId = (mBaseRequest != null) ? 
-                R.string.weibosdk_demo_toast_share_response_args_success : 
-                R.string.weibosdk_demo_toast_share_response_args_failed;
-        Toast.makeText(this, resId, Toast.LENGTH_LONG).show();
+    public void onResponse(BaseResponse baseResp) {
+        switch (baseResp.errCode) {
+        case WBConstants.ErrorCode.ERR_OK:
+            Toast.makeText(this, R.string.weibosdk_demo_toast_share_success, Toast.LENGTH_LONG).show();
+            break;
+        case WBConstants.ErrorCode.ERR_CANCEL:
+            Toast.makeText(this, R.string.weibosdk_demo_toast_share_canceled, Toast.LENGTH_LONG).show();
+            break;
+        case WBConstants.ErrorCode.ERR_FAIL:
+            Toast.makeText(this, 
+                    getString(R.string.weibosdk_demo_toast_share_failed) + "Error Message: " + baseResp.errMsg, 
+                    Toast.LENGTH_LONG).show();
+            break;
+        }
     }
 
     /**
-     * 用户点击分享按钮，将数据发送给微博客户端。
+     * 用户点击分享按钮，唤起微博客户端进行分享。
      */
     @Override
     public void onClick(View v) {
-    	if (null == mBaseRequest) {
-    		Toast.makeText(this, R.string.weibosdk_demo_toast_share_response_args_failed, 
-    		        Toast.LENGTH_LONG).show();
-
-    		// 结束掉当前 Activity
-    		finish();
-    		return;
-    	}
-    	
-    	if (R.id.share_to_btn == v.getId()) {
-    	    // 发送响应消息给微博客户端
-            responseMessage(mTextCheckbox.isChecked(), 
-                            mImageCheckbox.isChecked(), 
-                            mShareWebPageView.isChecked(),
-                            mShareMusicView.isChecked(), 
-                            mShareVideoView.isChecked(), 
-                            mShareVoiceView.isChecked());
-            
-            // 结束掉当前 Activity
-            finish();
+        if (R.id.share_to_btn == v.getId()) {
+            sendMessage(mTextCheckbox.isChecked(), 
+                    mImageCheckbox.isChecked(), 
+                    mShareWebPageView.isChecked(),
+                    mShareMusicView.isChecked(), 
+                    mShareVideoView.isChecked(), 
+                    mShareVoiceView.isChecked());
         }
     }
 
@@ -159,7 +179,7 @@ public class WBShareResponseActivity extends Activity implements OnClickListener
      */
     private void initViews() {
         mTitleView = (TextView) findViewById(R.id.share_title);
-        mTitleView.setText(R.string.weibosdk_demo_share_from_weibo_title);
+        mTitleView.setText(R.string.weibosdk_demo_share_to_weibo_title);
         mImageView = (ImageView) findViewById(R.id.share_imageview);
         mTextCheckbox = (CheckBox) findViewById(R.id.share_text_checkbox);
         mImageCheckbox = (CheckBox) findViewById(R.id.shared_image_checkbox);
@@ -219,28 +239,33 @@ public class WBShareResponseActivity extends Activity implements OnClickListener
             view.setIsChecked(isChecked);
         }
     };
-	
+
     /**
-     * 第三方应用响应微博客户端的请求，提供需要分享的数据。
-     * @see {@link #responseMultiMessage} 或者 {@link #responseSingleMessage}
+     * 第三方应用发送请求消息到微博，唤起微博分享界面。
+     * @see {@link #sendMultiMessage} 或者 {@link #sendSingleMessage}
      */
-	private void responseMessage(boolean hasText, boolean hasImage, 
-            boolean hasWebpage, boolean hasMusic, boolean hasVideo, boolean hasVoice) {
+    private void sendMessage(boolean hasText, boolean hasImage, 
+			boolean hasWebpage, boolean hasMusic, boolean hasVideo, boolean hasVoice) {
         
-        if (mShareWeiboAPI.isWeiboAppSupportAPI()) {
-            int supportApi = mShareWeiboAPI.getWeiboAppSupportAPI();
-            if (supportApi >= 10351 /*ApiUtils.BUILD_INT_VER_2_2*/) {
-                responseMultiMessage(hasText, hasImage, hasWebpage, hasMusic, hasVideo, hasVoice);
+        if (mShareType == SHARE_CLIENT) {
+            if (mWeiboShareAPI.isWeiboAppSupportAPI()) {
+                int supportApi = mWeiboShareAPI.getWeiboAppSupportAPI();
+                if (supportApi >= 10351 /*ApiUtils.BUILD_INT_VER_2_2*/) {
+                    sendMultiMessage(hasText, hasImage, hasWebpage, hasMusic, hasVideo, hasVoice);
+                } else {
+                    sendSingleMessage(hasText, hasImage, hasWebpage, hasMusic, hasVideo/*, hasVoice*/);
+                }
             } else {
-                responseSingleMessage(hasText, hasImage, hasWebpage, hasMusic, hasVideo/*, hasVoice*/);
+                Toast.makeText(this, R.string.weibosdk_demo_not_support_api_hint, Toast.LENGTH_SHORT).show();
             }
-        } else {
-            Toast.makeText(this, R.string.weibosdk_demo_not_support_api_hint, Toast.LENGTH_SHORT).show();
+        }
+        else if (mShareType == SHARE_ALL_IN_ONE) {
+            sendMultiMessage(hasText, hasImage, hasWebpage, hasMusic, hasVideo, hasVoice);
         }
     }
-	
+
     /**
-     * 第三方应用响应微博客户端的请求，提供需要分享的数据。
+     * 第三方应用发送请求消息到微博，唤起微博分享界面。
      * 注意：当 {@link IWeiboShareAPI#getWeiboAppSupportAPI()} >= 10351 时，支持同时分享多条消息，
      * 同时可以分享文本、图片以及其它媒体资源（网页、音乐、视频、声音中的一种）。
      * 
@@ -251,8 +276,9 @@ public class WBShareResponseActivity extends Activity implements OnClickListener
      * @param hasVideo   分享的内容是否有视频
      * @param hasVoice   分享的内容是否有声音
      */
-    private void responseMultiMessage(boolean hasText, boolean hasImage, boolean hasWebpage, 
+    private void sendMultiMessage(boolean hasText, boolean hasImage, boolean hasWebpage,
             boolean hasMusic, boolean hasVideo, boolean hasVoice) {
+        
         // 1. 初始化微博的分享消息
         WeiboMultiMessage weiboMessage = new WeiboMultiMessage();
         if (hasText) {
@@ -277,18 +303,46 @@ public class WBShareResponseActivity extends Activity implements OnClickListener
             weiboMessage.mediaObject = getVoiceObj();
         }
         
-		// 2. 初始化从微博到第三方的消息请求
-        ProvideMultiMessageForWeiboResponse response = new ProvideMultiMessageForWeiboResponse();
-        response.transaction = mBaseRequest.transaction;
-        response.reqPackageName = mBaseRequest.packageName;
-        response.multiMessage = weiboMessage;
-       
-	    // 3. 发送响应消息到微博
-        mShareWeiboAPI.sendResponse(response);
+        // 2. 初始化从第三方到微博的消息请求
+        SendMultiMessageToWeiboRequest request = new SendMultiMessageToWeiboRequest();
+        // 用transaction唯一标识一个请求
+        request.transaction = String.valueOf(System.currentTimeMillis());
+        request.multiMessage = weiboMessage;
+        
+        // 3. 发送请求消息到微博，唤起微博分享界面
+        if (mShareType == SHARE_CLIENT) {
+            mWeiboShareAPI.sendRequest(WBShareActivity.this, request);
+        }
+        else if (mShareType == SHARE_ALL_IN_ONE) {
+            AuthInfo authInfo = new AuthInfo(this, Constants.APP_KEY, Constants.REDIRECT_URL, Constants.SCOPE);
+            Oauth2AccessToken accessToken = AccessTokenKeeper.readAccessToken(getApplicationContext());
+            String token = "";
+            if (accessToken != null) {
+                token = accessToken.getToken();
+            }
+            mWeiboShareAPI.sendRequest(this, request, authInfo, token, new WeiboAuthListener() {
+                
+                @Override
+                public void onWeiboException( WeiboException arg0 ) {
+                }
+                
+                @Override
+                public void onComplete( Bundle bundle ) {
+                    // TODO Auto-generated method stub
+                    Oauth2AccessToken newToken = Oauth2AccessToken.parseAccessToken(bundle);
+                    AccessTokenKeeper.writeAccessToken(getApplicationContext(), newToken);
+                    Toast.makeText(getApplicationContext(), "onAuthorizeComplete token = " + newToken.getToken(), 0).show();
+                }
+                
+                @Override
+                public void onCancel() {
+                }
+            });
+        }
     }
-    
+
     /**
-     * 第三方应用响应微博客户端的请求，提供需要分享的数据。
+     * 第三方应用发送请求消息到微博，唤起微博分享界面。
      * 当{@link IWeiboShareAPI#getWeiboAppSupportAPI()} < 10351 时，只支持分享单条消息，即
      * 文本、图片、网页、音乐、视频中的一种，不支持Voice消息。
      * 
@@ -298,7 +352,7 @@ public class WBShareResponseActivity extends Activity implements OnClickListener
      * @param hasMusic   分享的内容是否有音乐
      * @param hasVideo   分享的内容是否有视频
      */
-    private void responseSingleMessage(boolean hasText, boolean hasImage, boolean hasWebpage, 
+    private void sendSingleMessage(boolean hasText, boolean hasImage, boolean hasWebpage,
             boolean hasMusic, boolean hasVideo/*, boolean hasVoice*/) {
         
         // 1. 初始化微博的分享消息
@@ -323,16 +377,16 @@ public class WBShareResponseActivity extends Activity implements OnClickListener
             weiboMessage.mediaObject = getVoiceObj();
         }*/
         
-		// 2. 初始化从微博到第三方的消息请求
-        ProvideMessageForWeiboResponse response = new ProvideMessageForWeiboResponse();
-        response.transaction = mBaseRequest.transaction;
-        response.reqPackageName = mBaseRequest.packageName;
-        response.message = weiboMessage;
+        // 2. 初始化从第三方到微博的消息请求
+        SendMessageToWeiboRequest request = new SendMessageToWeiboRequest();
+        // 用transaction唯一标识一个请求
+        request.transaction = String.valueOf(System.currentTimeMillis());
+        request.message = weiboMessage;
         
-		// 3. 发送响应消息到微博
-        mShareWeiboAPI.sendResponse(response);
+        // 3. 发送请求消息到微博，唤起微博分享界面
+        mWeiboShareAPI.sendRequest(WBShareActivity.this, request);
     }
-	
+
     /**
      * 获取分享的文本模板。
      * 
@@ -385,7 +439,9 @@ public class WBShareResponseActivity extends Activity implements OnClickListener
     private ImageObject getImageObj() {
         ImageObject imageObject = new ImageObject();
         BitmapDrawable bitmapDrawable = (BitmapDrawable) mImageView.getDrawable();
-        imageObject.setImageObject(bitmapDrawable.getBitmap());
+        //        设置缩略图。 注意：最终压缩过的缩略图大小不得超过 32kb。
+        Bitmap  bitmap = BitmapFactory.decodeResource(getResources(), R.drawable.ic_logo);
+        imageObject.setImageObject(bitmap);
         return imageObject;
     }
 
@@ -400,8 +456,9 @@ public class WBShareResponseActivity extends Activity implements OnClickListener
         mediaObject.title = mShareWebPageView.getTitle();
         mediaObject.description = mShareWebPageView.getShareDesc();
         
-        // 设置 Bitmap 类型的图片到视频对象里
-        mediaObject.setThumbImage(mShareWebPageView.getThumbBitmap());
+        Bitmap  bitmap = BitmapFactory.decodeResource(getResources(), R.drawable.ic_logo);
+        // 设置 Bitmap 类型的图片到视频对象里         设置缩略图。 注意：最终压缩过的缩略图大小不得超过 32kb。
+        mediaObject.setThumbImage(bitmap);
         mediaObject.actionUrl = mShareWebPageView.getShareUrl();
         mediaObject.defaultText = "Webpage 默认文案";
         return mediaObject;
@@ -419,8 +476,12 @@ public class WBShareResponseActivity extends Activity implements OnClickListener
         musicObject.title = mShareMusicView.getTitle();
         musicObject.description = mShareMusicView.getShareDesc();
         
-        // 设置 Bitmap 类型的图片到视频对象里
-        musicObject.setThumbImage(mShareMusicView.getThumbBitmap());
+        Bitmap  bitmap = BitmapFactory.decodeResource(getResources(), R.drawable.ic_logo);
+        
+
+        
+        // 设置 Bitmap 类型的图片到视频对象里        设置缩略图。 注意：最终压缩过的缩略图大小不得超过 32kb。
+        musicObject.setThumbImage(bitmap);
         musicObject.actionUrl = mShareMusicView.getShareUrl();
         musicObject.dataUrl = "www.weibo.com";
         musicObject.dataHdUrl = "www.weibo.com";
@@ -440,9 +501,30 @@ public class WBShareResponseActivity extends Activity implements OnClickListener
         videoObject.identify = Utility.generateGUID();
         videoObject.title = mShareVideoView.getTitle();
         videoObject.description = mShareVideoView.getShareDesc();
+        Bitmap  bitmap = BitmapFactory.decodeResource(getResources(), R.drawable.ic_share_video_thumb); 
+        // 设置 Bitmap 类型的图片到视频对象里  设置缩略图。 注意：最终压缩过的缩略图大小不得超过 32kb。
         
-        // 设置 Bitmap 类型的图片到视频对象里
-        videoObject.setThumbImage(mShareVideoView.getThumbBitmap());
+        
+        ByteArrayOutputStream os = null;
+        try {
+            os = new ByteArrayOutputStream();
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 85, os);
+            System.out.println("kkkkkkk    size  "+ os.toByteArray().length );
+        } catch (Exception e) {
+            e.printStackTrace();
+            LogUtil.e("Weibo.BaseMediaObject", "put thumb failed");
+        } finally {
+            try {
+                if (os != null) {
+                    os.close();
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        
+        
+        videoObject.setThumbImage(bitmap);
         videoObject.actionUrl = mShareVideoView.getShareUrl();
         videoObject.dataUrl = "www.weibo.com";
         videoObject.dataHdUrl = "www.weibo.com";
@@ -462,9 +544,9 @@ public class WBShareResponseActivity extends Activity implements OnClickListener
         voiceObject.identify = Utility.generateGUID();
         voiceObject.title = mShareVoiceView.getTitle();
         voiceObject.description = mShareVoiceView.getShareDesc();
-        
-        // 设置 Bitmap 类型的图片到视频对象里
-        voiceObject.setThumbImage(mShareVoiceView.getThumbBitmap());
+        Bitmap  bitmap = BitmapFactory.decodeResource(getResources(), R.drawable.ic_logo);
+        // 设置 Bitmap 类型的图片到视频对象里      设置缩略图。 注意：最终压缩过的缩略图大小不得超过 32kb。
+        voiceObject.setThumbImage(bitmap);
         voiceObject.actionUrl = mShareVoiceView.getShareUrl();
         voiceObject.dataUrl = "www.weibo.com";
         voiceObject.dataHdUrl = "www.weibo.com";

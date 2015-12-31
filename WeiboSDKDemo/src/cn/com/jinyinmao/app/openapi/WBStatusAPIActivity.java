@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.sina.weibo.sdk.demo.openapi;
+package cn.com.jinyinmao.app.openapi;
 
 import android.app.Activity;
 import android.graphics.Bitmap;
@@ -31,9 +31,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.sina.weibo.sdk.auth.Oauth2AccessToken;
-import com.sina.weibo.sdk.demo.AccessTokenKeeper;
-import com.sina.weibo.sdk.demo.Constants;
-import com.sina.weibo.sdk.demo.R;
+import cn.com.jinyinmao.app.AccessTokenKeeper;
+import cn.com.jinyinmao.app.Constants;
 import com.sina.weibo.sdk.exception.WeiboException;
 import com.sina.weibo.sdk.net.RequestListener;
 import com.sina.weibo.sdk.openapi.StatusesAPI;
@@ -41,6 +40,8 @@ import com.sina.weibo.sdk.openapi.models.ErrorInfo;
 import com.sina.weibo.sdk.openapi.models.Status;
 import com.sina.weibo.sdk.openapi.models.StatusList;
 import com.sina.weibo.sdk.utils.LogUtil;
+
+import cn.com.jinyinmao.app.R;
 
 /**
  * 该类主要演示了如何使用微博 OpenAPI 来获取以下内容：

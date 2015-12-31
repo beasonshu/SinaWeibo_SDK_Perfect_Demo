@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.sina.weibo.sdk.demo;
+package cn.com.jinyinmao.app;
 
 import android.app.Activity;
 import android.content.Intent;
@@ -25,6 +25,7 @@ import android.view.View.OnClickListener;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
+
 import com.sina.weibo.sdk.api.share.IWeiboShareAPI;
 import com.sina.weibo.sdk.api.share.WeiboShareSDK;
 

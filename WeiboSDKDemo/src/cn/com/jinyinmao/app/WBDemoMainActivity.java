@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.sina.weibo.sdk.demo;
+package cn.com.jinyinmao.app;
 
 import android.app.Activity;
 import android.content.Intent;
@@ -22,7 +22,7 @@ import android.os.Bundle;
 import android.view.View;
 import android.view.View.OnClickListener;
 
-import com.sina.weibo.sdk.demo.openapi.WBOpenAPIActivity;
+import cn.com.jinyinmao.app.openapi.WBOpenAPIActivity;
 import com.sina.weibo.sdk.utils.LogUtil;
 
 /**

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.sina.weibo.sdk.demo.openapi;
+package cn.com.jinyinmao.app.openapi;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -32,13 +32,14 @@ import android.widget.EditText;
 import android.widget.Toast;
 
 import com.sina.weibo.sdk.auth.Oauth2AccessToken;
-import com.sina.weibo.sdk.demo.AccessTokenKeeper;
-import com.sina.weibo.sdk.demo.Constants;
-import com.sina.weibo.sdk.demo.R;
+import cn.com.jinyinmao.app.AccessTokenKeeper;
+import cn.com.jinyinmao.app.Constants;
 import com.sina.weibo.sdk.exception.WeiboException;
 import com.sina.weibo.sdk.net.RequestListener;
 import com.sina.weibo.sdk.openapi.InviteAPI;
 import com.sina.weibo.sdk.utils.LogUtil;
+
+import cn.com.jinyinmao.app.R;
 
 /**
  * 该类主要演示了如何使用 {@link InviteAPI} 来邀请好友。

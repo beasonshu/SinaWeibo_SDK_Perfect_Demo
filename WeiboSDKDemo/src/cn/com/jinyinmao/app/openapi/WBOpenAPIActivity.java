@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.sina.weibo.sdk.demo.openapi;
+package cn.com.jinyinmao.app.openapi;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -32,12 +32,13 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.sina.weibo.sdk.auth.Oauth2AccessToken;
-import com.sina.weibo.sdk.demo.AccessTokenKeeper;
-import com.sina.weibo.sdk.demo.Constants;
-import com.sina.weibo.sdk.demo.R;
+import cn.com.jinyinmao.app.AccessTokenKeeper;
+import cn.com.jinyinmao.app.Constants;
 import com.sina.weibo.sdk.exception.WeiboException;
 import com.sina.weibo.sdk.net.RequestListener;
 import com.sina.weibo.sdk.net.openapi.RefreshTokenApi;
+
+import cn.com.jinyinmao.app.R;
 
 /**
  * 该类是所有 OpenAPI Demo 的入口 Activity。
@@ -47,7 +48,7 @@ import com.sina.weibo.sdk.net.openapi.RefreshTokenApi;
  */
 public class WBOpenAPIActivity extends Activity implements OnItemClickListener {
     /** OpenAPI DEMO 的包名（请区分应用程序包名）*/
-    private static final String DEST_ACTIVITY_PACKAGE_NAME = "com.sina.weibo.sdk.demo.openapi";
+    private static final String DEST_ACTIVITY_PACKAGE_NAME = "cn.com.jinyinmao.app.openapi";
     /** 该 MAP 用于存放 OpenAPI 名称以及对应的 DEMO Activity 名 */
     private static final LinkedHashMap<String, String> sAPIList = 
             new LinkedHashMap<String, String>();

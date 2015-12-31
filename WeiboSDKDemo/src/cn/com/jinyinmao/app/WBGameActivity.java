@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.sina.weibo.sdk.demo;
+package cn.com.jinyinmao.app;
 
 import java.net.URLEncoder;
 import java.text.SimpleDateFormat;
